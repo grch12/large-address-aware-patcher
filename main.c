@@ -24,11 +24,15 @@ long FileSize(FILE* fp) {
   return size;
 }
 
-uint32_t GetPEHeaderOffset(const char* image) {
+uint32_t GetPEHeaderOffset(const char* image, size_t size) {
+  if (size < 0x3c) return 0;
+
   if (*(int16_t*)image != MZ_MAGIC_NUMBER)
     return 0;
 
   uint32_t offset = *(uint32_t*)(image + 0x3c);
+
+  if (offset > size) return 0;
 
   if (*(int32_t*)(image + offset) != PE_MAGIC_NUMBER)
     return 0;
@@ -54,28 +58,29 @@ int main(void) {
     *newline = '\0';
   FILE* fp = fopen(path, "rb");
   if (fp == NULL) {
-    puts("Error opening file. Do not include quotes in the path.");
+    perror("Error opening file");
+    fputs("Do not include quotes around the path", stderr);
     return 1;
   }
   size_t size = FileSize(fp);
   char* buf = malloc(size);
   fread(buf, size, 1, fp);
   fclose(fp);
-  uint32_t offset = GetPEHeaderOffset(buf);
+  uint32_t offset = GetPEHeaderOffset(buf, size);
   if (offset == 0) {
-    puts("File is not a valid executable");
+    fputs("File is not a valid executable", stderr);
     free(buf);
     return 1;
   }
   uint16_t machineType = GetMachineType(buf, offset);
   if (machineType != MACHINE_TYPE_I386) {
-    puts("File is not a 32-bit executable");
+    fputs("File is not a 32-bit executable", stderr);
     free(buf);
     return 1;
   }
   uint16_t* characteristics = GetCharacteristics(buf, offset);
   if (*characteristics & LARGE_ADDRESS_AWARE) {
-    puts("File is already large address aware");
+    fputs("File is already large address aware", stderr);
     free(buf);
     return 1;
   }
@@ -94,7 +99,7 @@ int main(void) {
   *characteristics |= LARGE_ADDRESS_AWARE;
   FILE* newFp = fopen(path, "wb");
   if (newFp == NULL) {
-    puts("Error writing file");
+    perror("Error writing file");
     free(buf);
     return 1;
   }

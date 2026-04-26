@@ -22,6 +22,10 @@ The precompiled binary is for x64 Windows and requires UCRT. If this is not the 
 
 Since the program only uses the C standard library, it should compile on any platform with a compiler supporting C99. Simply clone this repository and run the command `gcc main.c -o patcher` in your terminal. However, note that the program requires a little-endian machine to run because PE files are little-endian.
 
+## How It Works
+
+See [my blog post](https://grch12.github.io/my-blog/posts/2026/large-address-aware.html) (in Chinese) for more details.
+
 ## License
 
 This program is licensed under the MIT License. See the LICENSE file for more details.
