@@ -18,9 +18,17 @@ This program patches the "large address aware" flag in a 32-bit executable file.
 
 ## Guides on Compiling
 
-The precompiled binary is for x64 Windows and requires UCRT. If this is not the case, you can compile the source code yourself.
+The precompiled binary is for x64 Windows and requires Windows 10 1803+ (because it uses UTF-8 codepage). If this is not the case, you can compile the source code yourself.
 
-Since the program only uses the C standard library, it should compile on any platform with a compiler supporting C99. Simply clone this repository and run the command `gcc main.c -o patcher` in your terminal. However, note that the program requires a little-endian machine to run because PE files are little-endian.
+Since the program only uses the C standard library, it should compile on any platform with a compiler supporting C99. Simply clone this repository and run the command (for example) `gcc main.c -o patcher` in your terminal. However, note that the program requires a little-endian machine to run because PE files are little-endian.
+
+If you are compiling for older versions of Windows (prior to 1803), remove the following line from `main.c`:
+
+```c
+#define USE_UTF8
+```
+
+This will make the program use ANSI encoding instead of UTF-8.
 
 ## How It Works
 

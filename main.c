@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define USE_UTF8
+
+#if defined(_WIN32) && defined(USE_UTF8)
+#include <signal.h>
+#include <windows.h>
+#endif
+
 // You need a little-endian machine to run this
 
 #define MZ_MAGIC_NUMBER ((int16_t)0x5a4d)      // "MZ"
@@ -12,6 +19,7 @@
 #define MACHINE_TYPE_I386 0x014c
 
 #define LARGE_ADDRESS_AWARE 0x0020
+#define FILE_IS_DLL 0x2000
 
 #define PATH_LENGTH 32768
 
@@ -48,8 +56,31 @@ uint16_t* GetCharacteristics(const char* image, uint32_t offset) {
   return (uint16_t*)(image + offset + 0x16);
 }
 
+#if defined(_WIN32) && defined(USE_UTF8)
+UINT originalCP;
+void RestoreCP(void) { SetConsoleCP(originalCP); }
+void sigintHandler(int _) {
+  (void)_;  // suppress unused parameter warning
+  RestoreCP();
+  exit(1);
+}
+#endif
+
 int main(void) {
+#ifdef USE_UTF8
   setlocale(LC_ALL, ".UTF-8");
+#endif
+
+#if defined(_WIN32) && defined(USE_UTF8)
+  // On Windows, setlocale only affects output
+  // This is the most straightforward solution, but requires Windows 10 1803+
+  // If you are using an older version of Windows, use ANSI instead
+  // See README.md for details
+  originalCP = GetConsoleCP();
+  SetConsoleCP(CP_UTF8);
+  atexit(RestoreCP);
+  signal(SIGINT, sigintHandler);
+#endif
 
   printf("Input the path to the executable file you want to patch: ");
   char path[PATH_LENGTH];
@@ -91,6 +122,12 @@ int main(void) {
   }
 
   uint16_t* characteristics = GetCharacteristics(buf, offset);
+  if (*characteristics & FILE_IS_DLL) {
+    fputs("File is a DLL, not a normal executable\n", stderr);
+    free(buf);
+    return 1;
+  }
+
   if (*characteristics & LARGE_ADDRESS_AWARE) {
     fputs("File is already large address aware\n", stderr);
     free(buf);
@@ -99,8 +136,7 @@ int main(void) {
 
   // Backing up the original file with a .bak extension
   char backupPath[PATH_LENGTH];
-  strcpy(backupPath, path);
-  strncat(backupPath, ".bak", PATH_LENGTH - strlen(path) - 1);
+  snprintf(backupPath, PATH_LENGTH, "%s.bak", path);
   int result = rename(path, backupPath);
   if (result != 0) {
     printf(
